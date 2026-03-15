@@ -4,526 +4,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Poker Card Detector - AIE223</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>Texas Hold'em Vision</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body>
-    <div class="container">
-        <header>
-            <h1>Poker Card Detector</h1>
-            <p>AIE223 Project - YOLO26n (mAP@50: 85%)</p>
+    <div class="app-shell">
+        <header class="hero">
+            <p class="hero-kicker">YOLO Poker Detector</p>
+            <h1>Texas Hold'em Vision</h1>
+            <p class="hero-copy">Frontend สำหรับตรวจจับไพ่จริงผ่าน Flask + YOLO รองรับภาพนิ่ง วิดีโอที่อัปโหลด และ webcam แบบต่อเนื่อง</p>
         </header>
 
-        <div class="controls-section">
-            <div class="confidence-filter">
-                <label for="confSlider">กรองความมั่นใจ (Confidence): <span id="confValue">50</span>%</label>
-                <input type="range" id="confSlider" min="0" max="100" value="50">
-            </div>
-            <div class="webcam-control">
-                <button type="button" id="webcamBtn" class="btn-blue">📸 เปิดกล้อง Webcam</button>
-            </div>
-        </div>
+        <main class="dashboard">
+            <section class="stage-column">
+                <div id="dropzone" class="panel dropzone" role="button" tabindex="0" aria-label="อัปโหลดรูปหรือวิดีโอ">
+                    <input type="file" id="fileInput" class="hidden" accept="image/*,video/*">
 
-        <section class="upload-section">
-            <form id="uploadForm">
-                <input type="file" id="imageInput" accept=".jpg, .jpeg, .png, .mp4, .webm">
-                <button type="submit" id="detectBtn">Detect Cards</button>
-            </form>
-            <p id="statusText">กรุณาอัปโหลดรูปภาพ/วิดีโอ หรือเปิดกล้อง</p>
-        </section>
+                    <div id="uploadPrompt" class="upload-prompt">
+                        <div class="upload-badge">
+                            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                            </svg>
+                        </div>
+                        <p class="upload-title">Drag and drop หรือคลิกเพื่อเลือกไฟล์</p>
+                        <p class="upload-copy">ภาพจะส่งเข้า `/detect` ทันที ส่วนวิดีโอและ webcam จะส่งเป็นเฟรมต่อเนื่อง</p>
+                    </div>
 
-        <div id="summarySection" class="summary-section hidden">
-            <h3>🃏 Current Hand Analysis (ไพ่บนโต๊ะ)</h3>
-            <p id="summaryText"></p>
-        </div>
+                    <div id="scannerOverlay" class="scanner-overlay hidden" aria-hidden="true">
+                        <div class="scanner-line"></div>
+                        <p>Analyzing cards...</p>
+                    </div>
 
-        <section class="result-section">
-            <div id="imageContainer" class="image-wrapper hidden">
-                <img id="resultImage" src="" alt="Uploaded Image" class="hidden">
-                <video id="resultVideo" src="" controls muted autoplay playsinline class="hidden"></video>
-                <!-- Hidden canvas for extracting frames -->
-                <canvas id="hiddenCanvas" class="hidden"></canvas>
-            </div>
-        </section>
+                    <div id="mediaWrapper" class="media-wrapper hidden">
+                        <img id="displayImage" class="media-element hidden" alt="Preview">
+                        <video id="displayVideo" class="media-element hidden" autoplay muted playsinline></video>
+                        <canvas id="hiddenCanvas" class="hidden"></canvas>
+                    </div>
+                </div>
+
+                <div class="panel toolbar">
+                    <div class="threshold-group">
+                        <div class="toolbar-header">
+                            <label for="confSlider">Confidence Threshold</label>
+                            <span id="confValueDisplay" class="value-chip">50%</span>
+                        </div>
+                        <input type="range" id="confSlider" min="0" max="100" value="50">
+                    </div>
+
+                    <label class="switch-group" for="toggleBoxes">
+                        <span>แสดงกรอบ</span>
+                        <span class="switch">
+                            <input type="checkbox" id="toggleBoxes" checked>
+                            <span class="switch-ui"></span>
+                        </span>
+                    </label>
+                </div>
+            </section>
+
+            <aside class="sidebar">
+                <div class="action-grid">
+                    <button id="webcamBtn" class="action-btn action-btn-primary" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M15 10 20 7.5v9L15 14M5 18h8a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H5A2 2 0 0 0 3 8v8a2 2 0 0 0 2 2Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                        <span>เปิดกล้อง</span>
+                    </button>
+                    <button id="clearBtn" class="action-btn action-btn-secondary" type="button">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M4 7h16m-2 0-.8 11.2A2 2 0 0 1 15.2 20H8.8a2 2 0 0 1-2-1.8L6 7m3-3h6a1 1 0 0 1 1 1v2H8V5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                        <span>ล้างข้อมูล</span>
+                    </button>
+                </div>
+
+                <section class="panel analysis-panel">
+                    <div class="analysis-header">
+                        <div>
+                            <p class="panel-kicker">Board Analysis</p>
+                            <h2>Current Table State</h2>
+                        </div>
+                        <div class="status-cluster">
+                            <span id="statusDot" class="status-dot is-idle"></span>
+                            <span id="statusText">พร้อมใช้งาน</span>
+                        </div>
+                    </div>
+
+                    <div id="emptyAnalysis" class="empty-analysis">
+                        <p id="emptyAnalysisTitle" class="empty-title">พร้อมสแกนไพ่</p>
+                        <p id="emptyAnalysisCopy" class="empty-copy">อัปโหลดรูป เปิดกล้อง หรือใช้วิดีโอเพื่อเริ่มวิเคราะห์บน frontend จริง</p>
+                    </div>
+
+                    <div id="resultAnalysis" class="results hidden">
+                        <section class="result-block">
+                            <div class="result-row">
+                                <p class="result-label">Detected Cards</p>
+                                <p class="result-meta"><span id="cardCount">0</span> ใบ</p>
+                            </div>
+                            <div id="visualCardsContainer" class="visual-cards"></div>
+                        </section>
+
+                        <section class="result-block highlight-block">
+                            <p class="result-label">Current Best Hand</p>
+                            <div id="bestHandResult" class="best-hand-result"></div>
+                            <div id="bestHandCards" class="best-hand-cards"></div>
+                        </section>
+
+                        <section id="drawsContainer" class="result-block draws-block hidden">
+                            <p class="result-label">Draws / Outs</p>
+                            <div id="drawsResult" class="draws-result"></div>
+                        </section>
+                    </div>
+                </section>
+            </aside>
+        </main>
     </div>
 
-    <script>
-        const form = document.getElementById('uploadForm');
-        const imageInput = document.getElementById('imageInput');
-        const imageContainer = document.getElementById('imageContainer');
-        const resultImage = document.getElementById('resultImage');
-        const resultVideo = document.getElementById('resultVideo');
-        const statusText = document.getElementById('statusText');
-        const detectBtn = document.getElementById('detectBtn');
-
-        // ตัวแปรฟีเจอร์ใหม่
-        const confSlider = document.getElementById('confSlider');
-        const confValue = document.getElementById('confValue');
-        const webcamBtn = document.getElementById('webcamBtn');
-        const summarySection = document.getElementById('summarySection');
-        const summaryText = document.getElementById('summaryText');
-
-        const hiddenCanvas = document.getElementById('hiddenCanvas');
-        const ctx = hiddenCanvas.getContext('2d');
-
-        // ตัวแปรเก็บข้อมูล Mock Data เอาไว้ให้ Slider ใช้คำนวณแบบ Real-time
-        let currentDetections = [];
-        let isWebcamActive = false;
-        let detectionLoopTimeout = null;
-
-        // --- ฟังก์ชัน 1: อัปเดตตัวเลข Slider และวาดกรอบใหม่ ---
-        confSlider.addEventListener('input', (e) => {
-            const threshold = e.target.value;
-            confValue.innerText = threshold;
-            if (currentDetections.length > 0) {
-                renderDetections(threshold);
-            }
-        });
-
-        // --- ฟังก์ชัน 2: แปลงคลาส (เช่น AC) เป็นสัญลักษณ์ไพ่ (A♣) ---
-        function formatCardSymbol(className) {
-            const suitMap = { 'S': '♠', 'H': '♥', 'D': '♦', 'C': '♣' };
-            const rank = className.slice(0, -1);
-            const suit = className.slice(-1);
-            return `${rank}${suitMap[suit] || suit}`;
-        }
-
-        // --- ฟังก์ชัน 3: วาดกรอบและสรุปข้อความ ---
-        function renderDetections(threshold) {
-            // ลบของเก่าออกให้หมด
-            document.querySelectorAll('.bounding-box').forEach(box => box.remove());
-
-            let detectedCards = [];
-            let rankCounts = {};
-
-            currentDetections.forEach(det => {
-                // เช็คว่าผ่านเกณฑ์ Confidence ไหม
-                if (det.confidence >= threshold) {
-                    // วาดกรอบ
-                    const box = document.createElement('div');
-                    box.className = 'bounding-box';
-                    box.style.top = det.box.top + '%';
-                    box.style.left = det.box.left + '%';
-                    box.style.width = det.box.width + '%';
-                    box.style.height = det.box.height + '%';
-
-                    const label = document.createElement('span');
-                    label.className = 'box-label';
-                    label.innerText = `${det.class}: ${det.confidence}%`;
-
-                    box.appendChild(label);
-                    imageContainer.appendChild(box);
-
-                    // เก็บชื่อไพ่ไปทำสรุป
-                    detectedCards.push(formatCardSymbol(det.class));
-
-                    // นับจำนวน Rank แยกกัน (เช่น 10 ซ้ำกี่ใบ)
-                    const rank = det.class.slice(0, -1);
-                    rankCounts[rank] = (rankCounts[rank] || 0) + 1;
-                }
-            });
-
-            // อัปเดตข้อความสรุปไพ่และการวิเคราะห์ Hand
-            if (detectedCards.length > 0) {
-                // เรียกใช้ฟังก์ชันประเมินไพ่ Texas Hold'em (ส่งค่า raw class เช่น ['10H', 'AS', ...])
-                const rawClasses = currentDetections
-                    .filter(det => det.confidence >= threshold)
-                    .map(det => det.class);
-
-                const evaluation = evaluateTexasHoldem(rawClasses);
-
-                let handAnalysisHtml = ``;
-                if (evaluation && evaluation.bestHand) {
-                    const bestHand = evaluation.bestHand;
-                    handAnalysisHtml = `<div style="color: ${bestHand.color}; font-weight: bold; font-size: 1.3rem; margin-top: 5px; padding: 10px; background: rgba(0,0,0,0.05); border-radius: 8px; display: inline-block;">
-                        ${bestHand.icon} ${bestHand.name}: <span style="font-weight: normal; font-size: 1.1rem;">${bestHand.cards.join(', ')}</span>
-                    </div>`;
-
-                    if (evaluation.draws && evaluation.draws.length > 0) {
-                        handAnalysisHtml += `<div style="color: #c0392b; font-weight: bold; font-size: 1.1rem; margin-top: 5px;">
-                            รอไพ่ (Draws): <span style="font-weight: normal;">${evaluation.draws.join(', ')}</span>
-                        </div>`;
-                    }
-                }
-
-                summarySection.classList.remove('hidden');
-                summaryText.innerHTML = `
-                    <div style="margin-bottom: 10px;">
-                        ไพ่บนโต๊ะ (<strong>${detectedCards.length}</strong> ใบ): <span style="color:#2980b9; font-size:1.2rem; font-weight:bold;">${detectedCards.join(' ')}</span>
-                    </div>
-                    <strong>ผลวิเคราะห์ (Best Hand):</strong><br>
-                    ${handAnalysisHtml}
-                `;
-            } else {
-                summarySection.classList.remove('hidden');
-                summaryText.innerHTML = "ไม่พบไพ่ที่ตรงตามเกณฑ์ความมั่นใจ";
-            }
-        }
-
-        // --- ฟังก์ชัน 4: ระบบ Texas Hold'em Hand Evaluator ---
-        // รับ Array ของชื่อคลาสไพ่ (เช่น ['10S', 'JS', 'QS', 'KS', 'AS'])
-        function evaluateTexasHoldem(classes) {
-            if (!classes || classes.length === 0) return null;
-
-            // 1. แปลงคลาสเป็น Object ที่ประมวลผลได้ง่าย
-            const rankValues = { '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
-            let cards = classes.map(cls => {
-                const rank = cls.slice(0, -1);
-                const suit = cls.slice(-1);
-                return {
-                    str: formatCardSymbol(cls), // เช่น '10♠'
-                    rank: rank,
-                    suit: suit,
-                    val: rankValues[rank]
-                };
-            });
-
-            // ป้องกันไพ่ซ้ำแบบเป๊ะๆ 100% (เผื่อหน้าเว็บนับซ้ำก่อน)
-            const uniqueCards = [];
-            const seen = new Set();
-            for (const c of cards) {
-                if (!seen.has(c.str)) {
-                    seen.add(c.str);
-                    uniqueCards.push(c);
-                }
-            }
-            cards = uniqueCards;
-
-            // เรียงลำดับไพ่จากมากไปน้อย
-            cards.sort((a, b) => b.val - a.val);
-
-            // 2. จัดกลุ่มและนับจำนวน
-            const rankCounts = {};
-            const suitCounts = {};
-            cards.forEach(c => {
-                rankCounts[c.val] = (rankCounts[c.val] || 0) + 1;
-                suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1;
-            });
-
-            // หาว่ามี Flush หรือไม่ (Suit เดียวกัน 5 ใบขึ้นไป)
-            let flushSuit = null;
-            let flushCards = [];
-            for (const [suit, count] of Object.entries(suitCounts)) {
-                if (count >= 5) {
-                    flushSuit = suit;
-                    flushCards = cards.filter(c => c.suit === suit);
-                    break;
-                }
-            }
-
-            // ฟังก์ชันย่อยสำหรับหา Straight จากชุดไพ่ที่ให้มา
-            function findStraight(cardArray) {
-                // ลบค่า Rank ที่ซ้ำกันออกก่อนหา Straight
-                const uniqueVals = [...new Set(cardArray.map(c => c.val))].sort((a, b) => b - a);
-
-                // ถือว่า A เป็น 1 ได้ (A-2-3-4-5) ด้วยการใส่ 1 เสมือนเข้าไป
-                if (uniqueVals.includes(14)) uniqueVals.push(1);
-
-                for (let i = 0; i <= uniqueVals.length - 5; i++) {
-                    if (uniqueVals[i] - uniqueVals[i + 4] === 4) {
-                        // เจอ Straight หาไพ่ตัวจริง 5 ใบที่ประกอบเป็น Straight นี้
-                        const straightVals = uniqueVals.slice(i, i + 5);
-                        const straightCards = [];
-                        straightVals.forEach(v => {
-                            const actualVal = v === 1 ? 14 : v; // แปลง 1 กลับไปหา A (14)
-                            const card = cardArray.find(c => c.val === actualVal);
-                            if (card) straightCards.push(card.str);
-                        });
-                        return straightCards;
-                    }
-                }
-                return null;
-            }
-
-            // ฟังก์ชันสำหรับหา Draws
-            function getDraws() {
-                const draws = [];
-                // Flush Draw
-                for (const [suit, count] of Object.entries(suitCounts)) {
-                    if (count === 4) {
-                        draws.push(`Flush Draw`);
-                        break;
-                    }
-                }
-
-                // Straight Draw
-                const uniqueVals = [...new Set(cards.map(c => c.val))].sort((a, b) => b - a);
-                if (uniqueVals.includes(14)) uniqueVals.push(1);
-
-                let isOESD = false;
-                let isGutshot = false;
-
-                // ตรวจสอบไพ่ 4 ใบ
-                for (let i = 0; i <= uniqueVals.length - 4; i++) {
-                    const diff = uniqueVals[i] - uniqueVals[i + 3];
-                    if (diff === 3) {
-                        // 4 ใบเรียง (เช่น 5-6-7-8)
-                        const top = uniqueVals[i];
-                        // A-2-3-4 และ J-Q-K-A นับเป็น Gutshot
-                        if (top === 14 || top === 4) {
-                            isGutshot = true;
-                        } else {
-                            isOESD = true;
-                        }
-                    } else if (diff === 4) {
-                        // 4 ใบมีช่องว่าง 1 ช่อง (เช่น 5-6-8-9) = Gutshot
-                        isGutshot = true;
-                    }
-                }
-
-                if (isOESD) draws.push("Open-Ended Straight Draw");
-                else if (isGutshot) draws.push("Gutshot Straight Draw");
-
-                return draws;
-            }
-
-            // ฟังก์ชันสำหรับหา Best Hand
-            function getBestHand() {
-                // 1. Royal Flush / Straight Flush
-                if (flushCards.length >= 5) {
-                    const straightFlushCards = findStraight(flushCards);
-                    if (straightFlushCards) {
-                        if (straightFlushCards[0].includes('A')) {
-                            return { name: "Royal Flush", color: "#f1c40f", cards: straightFlushCards };
-                        }
-                        return { name: "Straight Flush", color: "#f39c12", cards: straightFlushCards };
-                    }
-                }
-
-                const grouped = { 4: [], 3: [], 2: [], 1: [] };
-                for (const [val, count] of Object.entries(rankCounts)) {
-                    grouped[count].push(parseInt(val));
-                }
-                for (const count in grouped) grouped[count].sort((a, b) => b - a);
-
-                const getRankName = (v) => Object.keys(rankValues).find(key => rankValues[key] === v);
-
-                // 2. Four of a Kind
-                if (grouped[4].length > 0) {
-                    const quadCards = cards.filter(c => c.val === grouped[4][0]).map(c => c.str);
-                    return { name: "Four of a Kind", icon: "🏆", color: "#8e44ad", cards: quadCards };
-                }
-
-                // 3. Full House
-                if (grouped[3].length > 0 && (grouped[3].length > 1 || grouped[2].length > 0)) {
-                    const threeRank = grouped[3][0];
-                    let twoRank = grouped[3].length > 1 ? grouped[3][1] : grouped[2][0];
-                    const fhCards = cards.filter(c => c.val === threeRank || c.val === twoRank).slice(0, 5).map(c => c.str);
-                    return { name: "Full House", color: "#d35400", cards: fhCards };
-                }
-
-                // 4. Flush
-                if (flushCards.length >= 5) {
-                    return { name: "Flush", color: "#3498db", cards: flushCards.slice(0, 5).map(c => c.str) };
-                }
-
-                // 5. Straight
-                const straightCards = findStraight(cards);
-                if (straightCards) {
-                    return { name: "Straight", color: "#16a085", cards: straightCards };
-                }
-
-                // 6. Three of a Kind
-                if (grouped[3].length > 0) {
-                    const tripCards = cards.filter(c => c.val === grouped[3][0]).map(c => c.str);
-                    return { name: "Three of a Kind", color: "#e67e22", cards: tripCards };
-                }
-
-                // 7. Two Pair
-                if (grouped[2].length >= 2) {
-                    const tpCards = cards.filter(c => c.val === grouped[2][0] || c.val === grouped[2][1]).map(c => c.str);
-                    return { name: "Two Pair", color: "#27ae60", cards: tpCards };
-                }
-
-                // 8. One Pair
-                if (grouped[2].length === 1) {
-                    const pairCards = cards.filter(c => c.val === grouped[2][0]).map(c => c.str);
-                    return { name: "Pair", color: "#2ecc71", cards: pairCards };
-                }
-
-                // 9. High Card
-                return { name: "High Card", color: "#7f8c8d", cards: [cards[0].str] };
-            }
-
-            return {
-                bestHand: getBestHand(),
-                draws: getDraws()
-            };
-        }
-
-        // --- ฟังก์ชัน 5: ระบบ Upload ---
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const file = imageInput.files[0];
-            if (!file) return;
-
-            // ปิดกล้องถ้าเปิดอยู่และหยุด Loop
-            if (isWebcamActive) {
-                stopWebcam();
-            }
-
-            detectBtn.disabled = true;
-            detectBtn.innerText = "กำลังประมวลผล...";
-            statusText.innerText = "กำลังวิเคราะห์ภาพ...";
-            summarySection.classList.add('hidden');
-
-            const objectUrl = URL.createObjectURL(file);
-            imageContainer.classList.remove('hidden');
-            document.querySelectorAll('.bounding-box').forEach(box => box.remove());
-
-            const isVideo = file.type.startsWith('video/');
-            if (isVideo) {
-                resultImage.classList.add('hidden');
-                resultVideo.src = objectUrl;
-                resultVideo.classList.remove('hidden');
-            } else {
-                resultVideo.classList.add('hidden');
-                resultImage.src = objectUrl;
-                resultImage.classList.remove('hidden');
-            }
-
-            // --- เริ่มต้นการเรียก API ของจริง (Integration) ---
-            const formData = new FormData();
-            formData.append('image', file); // ต้องตรงกับชื่อ field ใน app.py: request.files['image']
-
-            try {
-                const response = await fetch('/detect', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-
-                if (!isVideo) {
-                    currentDetections = data.detections || [];
-                    renderDetections(confSlider.value);
-                    statusText.innerText = "Detection สำเร็จ! (เชื่อมต่อ API จริงแล้ว)";
-                } else {
-                    currentDetections = [];
-                    statusText.innerText = "วิดีโอเล่นได้แล้ว! (หมายเหตุ: ตรวจสอบกับเวย์ว่า Backend รองรับการคืนค่า Video ไหม)";
-                }
-
-            } catch (error) {
-                console.error("Detection Error:", error);
-                statusText.innerText = "เกิดข้อผิดพลาด: ไม่สามารถเชื่อมต่อ API /detect ได้";
-                summarySection.classList.add('hidden');
-            } finally {
-                detectBtn.disabled = false;
-                detectBtn.innerText = "Detect Cards";
-            }
-        }); // <--- จุดที่เพิ่ม: วงเล็บปิดฟังก์ชัน Submit ที่หายไปตอนแรกครับ
-
-        // --- ฟังก์ชัน 5: ระบบ Webcam (UI Demo) ---
-        webcamBtn.addEventListener('click', async () => {
-            if (isWebcamActive) {
-                stopWebcam();
-                return;
-            }
-
-            try {
-                // ขอ permission แบบกำหนดขนาดให้เล็กลงหน่อยเพื่อลดภาระการส่ง
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: { ideal: 640 }, height: { ideal: 480 } }
-                });
-
-                resultImage.classList.add('hidden');
-                resultVideo.classList.remove('hidden');
-                imageContainer.classList.remove('hidden');
-                summarySection.classList.add('hidden');
-                document.querySelectorAll('.bounding-box').forEach(box => box.remove());
-
-                resultVideo.src = "";
-                resultVideo.srcObject = stream;
-
-                // รอให้ Video โหลด meta เสร็จถึงจะเริ่มดึงขนาดได้
-                resultVideo.onloadedmetadata = () => {
-                    resultVideo.play();
-                    hiddenCanvas.width = resultVideo.videoWidth;
-                    hiddenCanvas.height = resultVideo.videoHeight;
-
-                    isWebcamActive = true;
-                    webcamBtn.innerText = "กล้องทำงานอยู่ - คลิกเพื่อปิด";
-                    webcamBtn.style.backgroundColor = "#e74c3c"; // เปลี่ยนเป็นสีแดง
-                    statusText.innerText = "กล้องทำงานแล้ว กำลัง Detect แบบ Real-time...";
-                    currentDetections = [];
-
-                    // เริ่ม Loop
-                    detectWebcamFrame();
-                };
-
-            } catch (err) {
-                alert("ไม่สามารถเปิดกล้องได้ กรุณาตรวจสอบการอนุญาตบนเบราว์เซอร์");
-                console.error(err);
-            }
-        });
-
-        // --- ฟังก์ชัน 6: ลูปดึงภาพไป Detect ---
-        async function detectWebcamFrame() {
-            if (!isWebcamActive) return;
-
-            // วาดรูปลง Canvas
-            ctx.drawImage(resultVideo, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
-
-            // แปลง Canvas เป็น Blob (JPEG)
-            hiddenCanvas.toBlob(async (blob) => {
-                if (!blob) {
-                    // ถ้าแปลงไม่ได้ ลองใหม่รอบถัดไป
-                    detectionLoopTimeout = setTimeout(detectWebcamFrame, 100);
-                    return;
-                }
-
-                const formData = new FormData();
-                // ใส่เวลาเพื่อไม่ให้ชื่อไฟล์ซ้ำกัน เผื่อกันแคช
-                formData.append('image', blob, `frame_${Date.now()}.jpg`);
-
-                try {
-                    const response = await fetch('/detect', {
-                        method: 'POST',
-                        body: formData
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        currentDetections = data.detections || [];
-                        renderDetections(confSlider.value);
-                    }
-                } catch (error) {
-                    console.error("Webcam Detection Error:", error);
-                }
-
-                // เรียกตัวเองให้ทำงานต่อ (หน่วงเวลาสักนิดเพื่อไม่ให้ยิง API รัวเกินไป)
-                // ยิงประมาณ 5-10 เฟรมต่อวินาที ก็พอสำหรับ Demo (100ms - 200ms)
-                if (isWebcamActive) {
-                    detectionLoopTimeout = setTimeout(detectWebcamFrame, 200);
-                }
-            }, 'image/jpeg', 0.8); // บีบอัดภาพระดับนึง ช่วยประหยัดแบนด์วิดท์
-        }
-
-        // --- ฟังก์ชัน 7: ปิด Webcam ---
-        function stopWebcam() {
-            isWebcamActive = false;
-            if (detectionLoopTimeout) {
-                clearTimeout(detectionLoopTimeout);
-                detectionLoopTimeout = null;
-            }
-
-            if (resultVideo.srcObject) {
-                resultVideo.srcObject.getTracks().forEach(track => track.stop());
-                resultVideo.srcObject = null;
-            }
-
-            webcamBtn.innerText = "เปิดกล้อง Webcam";
-            webcamBtn.style.backgroundColor = ""; // กลับไปใช้สีเดิม
-            statusText.innerText = "กล้องปิดแล้ว";
-            document.querySelectorAll('.bounding-box').forEach(box => box.remove());
-            summarySection.classList.add('hidden');
-        }
-    </script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 
 </html>

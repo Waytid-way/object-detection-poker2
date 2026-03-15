@@ -47,11 +47,19 @@ def detect():
 
         # ── 2. บันทึก temp file (secure_filename ป้องกัน path traversal) ──
         filename = secure_filename(file.filename)
-        temp_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+        unique_filename = f"{uuid.uuid4().hex}_{filename}"
+        temp_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
         file.save(temp_path)
 
         # ── 3. Inference ──────────────────────
-        results = model(temp_path, conf=CONFIDENCE_THRESHOLD)
+        requested_confidence = request.form.get("confidence", "").strip()
+        confidence = CONFIDENCE_THRESHOLD
+        if requested_confidence:
+            parsed_confidence = float(requested_confidence)
+            confidence = parsed_confidence / 100 if parsed_confidence > 1 else parsed_confidence
+            confidence = max(0.0, min(confidence, 1.0))
+
+        results = model(temp_path, conf=confidence)
 
         # ── 4. รวบรวม raw detections ทั้งหมด ──
         raw_detections = []
