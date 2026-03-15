@@ -37,8 +37,10 @@
                     </div>
 
                     <div id="mediaWrapper" class="media-wrapper hidden">
-                        <img id="displayImage" class="media-element hidden" alt="Preview">
-                        <video id="displayVideo" class="media-element hidden" autoplay muted playsinline></video>
+                        <div id="mediaStage" class="media-stage">
+                            <img id="displayImage" class="media-element hidden" alt="Preview">
+                            <video id="displayVideo" class="media-element hidden" autoplay muted playsinline></video>
+                        </div>
                         <canvas id="hiddenCanvas" class="hidden"></canvas>
                     </div>
                 </div>
@@ -113,6 +115,15 @@
                         <section id="drawsContainer" class="result-block draws-block hidden">
                             <p class="result-label">Draws / Outs</p>
                             <div id="drawsResult" class="draws-result"></div>
+                        </section>
+
+                        <section id="tipsContainer" class="result-block tips-block hidden">
+                            <div class="result-row">
+                                <p class="result-label">Tips</p>
+                                <button id="closeTipsBtn" class="tip-close-btn" type="button" aria-label="ซ่อนคำอธิบาย">ปิด</button>
+                            </div>
+                            <h3 id="tipsTitle" class="tips-title"></h3>
+                            <p id="tipsBody" class="tips-body"></p>
                         </section>
                     </div>
                 </section>

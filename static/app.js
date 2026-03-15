@@ -3,6 +3,7 @@ const elements = {
     fileInput: document.getElementById("fileInput"),
     uploadPrompt: document.getElementById("uploadPrompt"),
     mediaWrapper: document.getElementById("mediaWrapper"),
+    mediaStage: document.getElementById("mediaStage"),
     displayImage: document.getElementById("displayImage"),
     displayVideo: document.getElementById("displayVideo"),
     hiddenCanvas: document.getElementById("hiddenCanvas"),
@@ -21,6 +22,10 @@ const elements = {
     bestHandCards: document.getElementById("bestHandCards"),
     drawsContainer: document.getElementById("drawsContainer"),
     drawsResult: document.getElementById("drawsResult"),
+    tipsContainer: document.getElementById("tipsContainer"),
+    tipsTitle: document.getElementById("tipsTitle"),
+    tipsBody: document.getElementById("tipsBody"),
+    closeTipsBtn: document.getElementById("closeTipsBtn"),
     cardCount: document.getElementById("cardCount"),
     statusDot: document.getElementById("statusDot"),
     statusText: document.getElementById("statusText")
@@ -35,7 +40,14 @@ const state = {
     stream: null,
     currentObjectUrl: null,
     requestVersion: 0,
-    isProcessing: false
+    isProcessing: false,
+    stableDetections: [],
+    pendingStableDetections: [],
+    pendingStableSignature: "",
+    pendingStableCount: 0,
+    missingStableCount: 0,
+    lastRenderedCardsSignature: "",
+    lastRenderedAnalysisSignature: ""
 };
 
 const suitEntityMap = {
@@ -43,6 +55,66 @@ const suitEntityMap = {
     H: "&hearts;",
     D: "&diams;",
     C: "&clubs;"
+};
+
+const WEBCAM_DETECTION_DELAY_MS = 120;
+const VIDEO_DETECTION_DELAY_MS = 200;
+const STABLE_DETECTION_FRAMES = 2;
+const STABLE_MISSING_FRAMES_TO_CLEAR = 3;
+
+const HAND_TIPS = {
+    "Royal Flush": {
+        title: "Royal Flush",
+        body: "ไพ่สเตรทฟลัชสูงสุด 5 ใบคือ A-K-Q-J-10 ดอกเดียวกัน เป็นไพ่ที่ชนะสูงสุดในโป๊กเกอร์และไม่มี hand ไหนชนะได้"
+    },
+    "Straight Flush": {
+        title: "Straight Flush",
+        body: "ไพ่เรียงกัน 5 ใบและเป็นดอกเดียวกัน เช่น 5-6-7-8-9 โพดำ เป็น hand ที่แข็งมาก รองจาก Royal Flush เท่านั้น"
+    },
+    "Four of a Kind": {
+        title: "Four of a Kind",
+        body: "มีไพ่ rank เดียวกัน 4 ใบ เช่น J 4 ใบ เรียกสั้น ๆ ว่า quads โดยทั่วไปชนะ hand ส่วนใหญ่แบบขาด"
+    },
+    "Full House": {
+        title: "Full House",
+        body: "ประกอบจากตอง 1 ชุดและคู่ 1 ชุด เช่น 8-8-8 กับ K-K เป็น hand ที่นิ่งและแข็งมากเมื่อ board มีการจับคู่"
+    },
+    "Flush": {
+        title: "Flush",
+        body: "มีไพ่ดอกเดียวกันอย่างน้อย 5 ใบ ไม่จำเป็นต้องเรียงกัน เช่น หัวใจ 5 ใบ ถ้ามีหลายคนติด flush จะตัดสินจากไพ่สูงสุดใน flush"
+    },
+    "Straight": {
+        title: "Straight",
+        body: "มีไพ่เรียงกัน 5 ใบ ไม่จำเป็นต้องดอกเดียวกัน เช่น 4-5-6-7-8 จุดสำคัญคือดูไพ่ปลายสูงสุดของลำดับนั้น"
+    },
+    "Three of a Kind": {
+        title: "Three of a Kind",
+        body: "มีไพ่ rank เดียวกัน 3 ใบ เช่น Q-Q-Q เรียกว่า set หรือ trips แล้วแต่ที่มาของไพ่ เป็น hand กลางถึงแข็ง"
+    },
+    "Two Pair": {
+        title: "Two Pair",
+        body: "มีคู่ 2 ชุด เช่น A-A และ 10-10 โดยจะตัดสินกันที่คู่สูงก่อน แล้วค่อยดูคู่รองและ kicker"
+    },
+    "Pair": {
+        title: "Pair",
+        body: "มีไพ่ rank เดียวกัน 2 ใบ เป็น hand พื้นฐานที่เจอบ่อยมาก การชนะหรือแพ้จะขึ้นกับขนาดคู่และ kicker ที่ตามมา"
+    },
+    "High Card": {
+        title: "High Card",
+        body: "ยังไม่ติดคู่ ไม่ติด straight และไม่ติด flush จึงใช้ไพ่สูงสุดเป็นตัวตัดสิน เช่น A-high หมายถึงไพ่สูงสุดคือ A"
+    },
+    "Flush Draw": {
+        title: "Flush Draw",
+        body: "ตอนนี้คุณมีไพ่ดอกเดียวกัน 4 ใบและต้องการอีก 1 ใบเพื่อให้ครบ flush ปกติคิดเป็นประมาณ 9 outs"
+    },
+    "Open-Ended Straight Draw": {
+        title: "Open-Ended Straight Draw",
+        body: "มีไพ่เรียงต่อกัน 4 ใบและรอได้ 2 ด้าน เช่น 6-7-8-9 ถ้าออก 5 หรือ 10 ก็จะครบ straight ปกติมีประมาณ 8 outs"
+    },
+    "Gutshot Straight Draw": {
+        title: "Gutshot Straight Draw",
+        body: "มีไพ่เกือบเรียง 4 ใบแต่ขาดตรงกลางแค่ 1 ค่า เช่น 6-7-9-10 ต้องการ 8 เท่านั้นถึงจะครบ straight ปกติมีประมาณ 4 outs"
+    }
 };
 
 initialize();
@@ -94,12 +166,17 @@ function initialize() {
 
     elements.confSlider.addEventListener("input", () => {
         elements.confValueDisplay.textContent = elements.confSlider.value + "%";
+        if (isLiveModeActive()) {
+            resetStabilityState();
+        }
         renderDetections();
     });
 
     elements.toggleBoxes.addEventListener("change", updateBoundingBoxVisibility);
     elements.webcamBtn.addEventListener("click", toggleWebcam);
     elements.clearBtn.addEventListener("click", resetUI);
+    elements.closeTipsBtn.addEventListener("click", hideTips);
+    elements.resultAnalysis.addEventListener("click", handleTipsClick);
 
     elements.displayVideo.addEventListener("play", () => {
         if (state.activeMode === "video") {
@@ -268,7 +345,7 @@ async function processLiveFrame() {
     }
 
     if (isLiveModeActive()) {
-        queueNextDetection(state.activeMode === "webcam" ? 250 : 420);
+        queueNextDetection(state.activeMode === "webcam" ? WEBCAM_DETECTION_DELAY_MS : VIDEO_DETECTION_DELAY_MS);
     }
 }
 
@@ -320,47 +397,86 @@ async function requestDetection(fileOrBlob, options = {}) {
 
 function renderDetections() {
     clearBoundingBoxes();
-    elements.visualCardsContainer.innerHTML = "";
 
     const threshold = Number(elements.confSlider.value);
     const visibleDetections = state.currentDetections.filter((detection) => detection.confidence >= threshold);
 
-    if (!visibleDetections.length) {
-        elements.resultAnalysis.classList.add("hidden");
-        elements.emptyAnalysis.classList.remove("hidden");
-        renderEmptyAnalysis("ไม่พบไพ่ที่ผ่าน threshold", "ลองลดค่า confidence หรือเปลี่ยนมุมกล้องแล้วสแกนใหม่");
-        elements.cardCount.textContent = "0";
-        elements.bestHandResult.textContent = "";
-        elements.bestHandCards.textContent = "";
-        elements.drawsContainer.classList.add("hidden");
+    visibleDetections.forEach((detection) => {
+        elements.mediaStage.appendChild(createBoundingBox(detection));
+    });
+
+    if (isLiveModeActive()) {
+        updateStableDetections(visibleDetections);
+    } else {
+        commitStableDetections(visibleDetections);
+    }
+
+    renderStableAnalysis(visibleDetections);
+    updateBoundingBoxVisibility();
+}
+
+function renderStableAnalysis(visibleDetections) {
+    const stableDetections = state.stableDetections;
+
+    if (!stableDetections.length) {
+        clearRenderedResults();
+
+        if (isLiveModeActive() && visibleDetections.length) {
+            renderEmptyAnalysis(
+                "กำลังยืนยันไพ่...",
+                `ต้องเห็นชุดไพ่เดิม ${STABLE_DETECTION_FRAMES} เฟรมติดกันก่อนอัปเดต panel`
+            );
+        } else {
+            renderEmptyAnalysis("ไม่พบไพ่ที่ผ่าน threshold", "ลองลดค่า confidence หรือเปลี่ยนมุมกล้องแล้วสแกนใหม่");
+        }
         return;
     }
 
-    visibleDetections.forEach((detection, index) => {
-        elements.mediaWrapper.appendChild(createBoundingBox(detection));
-        elements.visualCardsContainer.insertAdjacentHTML("beforeend", createCardHTML(detection.class, index * 40));
-    });
-
-    const detectedClasses = visibleDetections.map((detection) => detection.class);
+    const detectedClasses = stableDetections.map((detection) => detection.class);
+    const normalizedClasses = [...detectedClasses].sort();
+    const cardsSignature = normalizedClasses.join("|");
     const evaluation = evaluateTexasHoldem(detectedClasses);
+    const analysisSignature = JSON.stringify({
+        classes: normalizedClasses,
+        bestHandName: evaluation?.bestHand?.name || "",
+        bestHandCards: evaluation?.bestHand?.cards ? [...evaluation.bestHand.cards].sort() : [],
+        draws: evaluation?.draws ? [...evaluation.draws].sort() : []
+    });
 
     elements.emptyAnalysis.classList.add("hidden");
     elements.resultAnalysis.classList.remove("hidden");
     elements.cardCount.textContent = String(detectedClasses.length);
 
-    if (evaluation && evaluation.bestHand) {
-        elements.bestHandResult.innerHTML = `<span>${evaluation.bestHand.name}</span>`;
+    if (cardsSignature !== state.lastRenderedCardsSignature) {
+        renderVisualCards(detectedClasses);
+        state.lastRenderedCardsSignature = cardsSignature;
+    }
+
+    if (analysisSignature !== state.lastRenderedAnalysisSignature && evaluation && evaluation.bestHand) {
+        hideTips();
+        elements.bestHandResult.innerHTML = `
+            <span>${evaluation.bestHand.name}</span>
+            ${createTipTriggerHTML(evaluation.bestHand.name)}
+        `;
         elements.bestHandCards.innerHTML = evaluation.bestHand.cards.map(createCardTextHTML).join("");
 
         if (evaluation.draws.length) {
             elements.drawsContainer.classList.remove("hidden");
-            elements.drawsResult.textContent = evaluation.draws.join(" / ");
+            elements.drawsResult.innerHTML = evaluation.draws.map(createDrawChipHTML).join("");
         } else {
             elements.drawsContainer.classList.add("hidden");
+            elements.drawsResult.innerHTML = "";
         }
-    }
 
-    updateBoundingBoxVisibility();
+        state.lastRenderedAnalysisSignature = analysisSignature;
+    }
+}
+
+function renderVisualCards(detectedClasses) {
+    elements.visualCardsContainer.innerHTML = "";
+    detectedClasses.forEach((className, index) => {
+        elements.visualCardsContainer.insertAdjacentHTML("beforeend", createCardHTML(className, index * 40));
+    });
 }
 
 function createBoundingBox(detection) {
@@ -406,6 +522,19 @@ function createCardTextHTML(className) {
     const colorClass = isRedSuit(suit) ? "card-text is-red" : "card-text";
     const suitEntity = suitEntityMap[suit] || suit;
     return `<span class="${colorClass}">${rank}${suitEntity}</span>`;
+}
+
+function createTipTriggerHTML(key) {
+    return `<button class="tip-trigger" type="button" data-tip-key="${escapeHtmlAttribute(key)}" aria-label="ดูคำอธิบาย ${escapeHtmlAttribute(key)}">?</button>`;
+}
+
+function createDrawChipHTML(drawName) {
+    return `
+        <span class="draw-chip">
+            <span>${drawName}</span>
+            ${createTipTriggerHTML(drawName)}
+        </span>
+    `;
 }
 
 function evaluateTexasHoldem(classes) {
@@ -625,7 +754,8 @@ function prepareForNewSession(mode) {
     clearDetectionLoop();
     stopStream();
     clearBoundingBoxes();
-    clearAnalysis();
+    resetStabilityState();
+    clearRenderedResults();
     revokeObjectUrl();
 
     elements.fileInput.value = "";
@@ -667,13 +797,116 @@ function clearAnalysis() {
     elements.bestHandCards.textContent = "";
     elements.cardCount.textContent = "0";
     elements.drawsContainer.classList.add("hidden");
-    elements.drawsResult.textContent = "";
+    elements.drawsResult.innerHTML = "";
     elements.resultAnalysis.classList.add("hidden");
     elements.emptyAnalysis.classList.remove("hidden");
+    hideTips();
+}
+
+function clearRenderedResults() {
+    state.lastRenderedCardsSignature = "";
+    state.lastRenderedAnalysisSignature = "";
+    clearAnalysis();
+}
+
+function cloneDetections(detections) {
+    return detections.map((detection) => ({
+        ...detection,
+        box: { ...detection.box }
+    }));
+}
+
+function getDetectionsSignature(detections) {
+    return detections
+        .map((detection) => detection.class)
+        .sort()
+        .join("|");
+}
+
+function resetStabilityState() {
+    state.stableDetections = [];
+    state.pendingStableDetections = [];
+    state.pendingStableSignature = "";
+    state.pendingStableCount = 0;
+    state.missingStableCount = 0;
+}
+
+function commitStableDetections(detections) {
+    state.stableDetections = cloneDetections(detections);
+    state.pendingStableDetections = [];
+    state.pendingStableSignature = "";
+    state.pendingStableCount = 0;
+    state.missingStableCount = 0;
+}
+
+function updateStableDetections(visibleDetections) {
+    const incomingSignature = getDetectionsSignature(visibleDetections);
+    const stableSignature = getDetectionsSignature(state.stableDetections);
+
+    if (!visibleDetections.length) {
+        state.pendingStableDetections = [];
+        state.pendingStableSignature = "";
+        state.pendingStableCount = 0;
+
+        if (state.stableDetections.length) {
+            state.missingStableCount += 1;
+            if (state.missingStableCount >= STABLE_MISSING_FRAMES_TO_CLEAR) {
+                resetStabilityState();
+            }
+        }
+        return;
+    }
+
+    state.missingStableCount = 0;
+
+    if (incomingSignature === stableSignature) {
+        state.pendingStableDetections = [];
+        state.pendingStableSignature = "";
+        state.pendingStableCount = 0;
+        return;
+    }
+
+    if (incomingSignature !== state.pendingStableSignature) {
+        state.pendingStableSignature = incomingSignature;
+        state.pendingStableDetections = cloneDetections(visibleDetections);
+        state.pendingStableCount = 1;
+        return;
+    }
+
+    state.pendingStableCount += 1;
+    if (state.pendingStableCount >= STABLE_DETECTION_FRAMES) {
+        state.stableDetections = cloneDetections(state.pendingStableDetections);
+        state.pendingStableDetections = [];
+        state.pendingStableSignature = "";
+        state.pendingStableCount = 0;
+    }
 }
 
 function clearBoundingBoxes() {
     document.querySelectorAll(".bounding-box").forEach((node) => node.remove());
+}
+
+function handleTipsClick(event) {
+    const trigger = event.target.closest("[data-tip-key]");
+    if (!trigger) {
+        return;
+    }
+
+    const tipKey = trigger.dataset.tipKey;
+    const tip = HAND_TIPS[tipKey];
+    if (!tip) {
+        return;
+    }
+
+    elements.tipsTitle.textContent = tip.title;
+    elements.tipsBody.textContent = tip.body;
+    elements.tipsContainer.classList.remove("hidden");
+}
+
+function hideTips() {
+    elements.tipsTitle.textContent = "";
+    elements.tipsBody.textContent = "";
+    elements.tipsContainer.classList.add("hidden");
 }
 
 function updateBoundingBoxVisibility() {
@@ -746,4 +979,8 @@ function isLiveModeActive() {
 
 function isRedSuit(suit) {
     return suit === "H" || suit === "D";
+}
+
+function escapeHtmlAttribute(value) {
+    return value.replaceAll("&", "&amp;").replaceAll("\"", "&quot;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 }

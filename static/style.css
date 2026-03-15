@@ -238,11 +238,18 @@ label {
 
 .media-wrapper {
     position: relative;
-    display: inline-flex;
+    display: flex;
     width: 100%;
     min-height: 520px;
     align-items: center;
     justify-content: center;
+}
+
+.media-stage {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    line-height: 0;
 }
 
 .media-element {
@@ -596,6 +603,10 @@ input[type="range"]::-moz-range-thumb {
     font-family: "Space Grotesk", sans-serif;
     font-size: clamp(1.6rem, 3vw, 2.4rem);
     font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .best-hand-result span {
@@ -624,8 +635,75 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .draws-result {
-    display: inline-flex;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
     margin-top: 10px;
+}
+
+.draw-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--text);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.tip-trigger,
+.tip-close-btn {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.06);
+    color: #f5f5f5;
+    cursor: pointer;
+}
+
+.tip-trigger {
+    width: 24px;
+    height: 24px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1;
+    transition: background 160ms ease, transform 160ms ease;
+}
+
+.tip-trigger:hover,
+.tip-close-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
+}
+
+.tips-block {
+    background:
+        radial-gradient(circle at top right, rgba(255, 255, 255, 0.06), transparent 38%),
+        rgba(255, 255, 255, 0.03);
+}
+
+.tip-close-btn {
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.tips-title {
+    margin: 10px 0 8px;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 1.1rem;
+    color: #f2f2f2;
+}
+
+.tips-body {
+    margin: 0;
+    color: #cfcfcf;
+    line-height: 1.65;
 }
 
 .bounding-box {
