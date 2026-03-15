@@ -14,7 +14,7 @@ def download_model():
     Replace DRIVE_FILE_ID with your actual Google Drive file ID.
     """
     MODEL_PATH = "best.pt"
-    DRIVE_FILE_ID = "DRIVE_FILE_ID"  # TODO: Replace with actual file ID
+    DRIVE_FILE_ID = "1ztghMIoauv63T2rChaBvmc0W9lvqVGFA"
     
     # Skip if model already exists
     if os.path.exists(MODEL_PATH):
