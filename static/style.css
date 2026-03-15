@@ -1,0 +1,216 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #f4f7f6;
+    color: #333;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+/* ตั้งค่าให้ Responsive สูงสุดที่ 1280px */
+.container {
+    width: 100%;
+    max-width: 1280px; 
+    background: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+header h1 {
+    color: #2c3e50;
+    font-size: 2.5rem;
+}
+
+header p {
+    color: #7f8c8d;
+    margin-top: 5px;
+}
+
+/* ส่วนอัปโหลด */
+.upload-section {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+form {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+input[type="file"] {
+    padding: 10px;
+    border: 1px solid #bdc3c7;
+    border-radius: 6px;
+    background: #ecf0f1;
+}
+
+button {
+    background-color: #27ae60;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: bold;
+    transition: background 0.3s ease;
+}
+
+button:hover {
+    background-color: #219150;
+}
+
+button:disabled {
+    background-color: #95a5a6;
+    cursor: not-allowed;
+}
+
+/* ส่วนแสดงผลภาพ (ต้องเป็น relative เพื่อให้ตีกรอบทับได้) */
+.result-section {
+    display: flex;
+    justify-content: center;
+}
+
+.image-wrapper {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    border: 2px dashed #bdc3c7;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.image-wrapper img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* สไตล์ของ Bounding Box */
+.bounding-box {
+    position: absolute;
+    border: 3px solid #e74c3c;
+    background-color: rgba(231, 76, 60, 0.1); /* สีแดงโปร่งแสง */
+    pointer-events: none; /* ไม่ให้คลิกโดนกรอบ */
+}
+
+/* สไตล์ของ Label ชื่อไพ่ */
+.box-label {
+    position: absolute;
+    top: -25px;
+    left: -3px;
+    background-color: #e74c3c;
+    color: white;
+    padding: 2px 8px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+/* Responsive สำหรับมือถือ / แท็บเล็ต (768px ลงไป) */
+@media (max-width: 768px) {
+    form {
+        flex-direction: column;
+    }
+    
+    button {
+        width: 100%;
+    }
+
+    header h1 {
+        font-size: 2rem;
+    }
+}
+
+/* จัดการขนาด Video ให้พอดีกับกรอบ */
+.image-wrapper video {
+    display: block;
+    max-width: 100%;
+    max-height: 70vh; /* ไม่ให้วิดีโอยาวทะลุจอ */
+    object-fit: contain;
+}
+/* --- เพิ่มเติมสำหรับฟีเจอร์ใหม่ --- */
+
+/* แถบควบคุมด้านบน */
+.controls-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #ecf0f1;
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.confidence-filter {
+    flex: 1;
+    min-width: 200px;
+}
+
+.confidence-filter label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.confidence-filter input[type="range"] {
+    width: 100%;
+    cursor: pointer;
+}
+
+/* กล่องสรุปผล Current Hand Analysis */
+.summary-section {
+    background-color: #dff9fb;
+    border-left: 5px solid #22a6b3;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.summary-section h3 {
+    color: #2c3e50;
+    font-size: 1.2rem;
+    margin-bottom: 8px;
+}
+
+.summary-section p {
+    font-size: 1.1rem;
+    color: #34495e;
+}
+
+/* ปุ่มสีฟ้าสำหรับเปิดกล้อง */
+.btn-blue {
+    background-color: #3498db;
+    border: none;
+}
+
+.btn-blue:hover {
+    background-color: #2980b9;
+}
+
+/* ทำให้วิดีโอจากกล้องซ้ายขวาไม่กลับด้าน (เหมือนกระจก) */
+#resultVideo {
+    /* transform: scaleX(-1); สามารถเปิดใช้ถ้ายากให้กล้องเหมือนกระจก */
+}
