@@ -11,7 +11,7 @@
 | **ทีม** | AIE223 |
 | **Repository** | https://github.com/Waytid-way/object-detection-poker |
 | **วัตถุประสงค์** | ระบบตรวจจับไพ่โป๊กเกอร์จากภาพถ่ายโดยใช้ AI |
-| **เทคโนโลยีหลัก** | Python, Flask, YOLO11n (Ultralytics) |
+| **เทคโนโลยีหลัก** | Python, Flask, YOLO26n (Ultralytics) |
 | **สถานะ** | ✅ Backend ทดสอบผ่านแล้ว — Code clean & simple & ready |
 
 ---
@@ -52,7 +52,7 @@
     │ เรียก YOLO model
     │ ลบ temp file (ใน finally block เสมอ)
     ▼
-[YOLO11n Model — best.pt]
+[YOLO26n Model — best.pt]
     │ Inference (confidence threshold = 0.5)
     ▼
 [JSON Response]
@@ -115,12 +115,12 @@
 
 | รายการ | รายละเอียด |
 |---|---|
-| **Model** | YOLO11n (Nano) |
+| **Model** | YOLO26n (Nano) |
 | **ไฟล์ model** | `best.pt` |
 | **จำนวน class** | 52 class (ไพ่ทั้ง 52 ใบ) |
 | **รูปแบบ class** | AS, AH, AD, AC, 2S, 2H, ... KS, KH, KD, KC |
 | **Confidence threshold** | 0.5 (50%) |
-| **Performance** | mAP@50: 85% (ตามที่ระบุใน UI) |
+| **Performance** | Validation: mAP@50 96.16%, Precision 91.16%, Recall 90.89% (Speed: 4.09ms/inference) |
 
 ---
 
