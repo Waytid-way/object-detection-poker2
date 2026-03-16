@@ -1,5 +1,5 @@
 # รายงานโปรเจกต์ Poker Card Detector
-## ทีม AIE223 | วันที่ 15 มีนาคม 2569 | เวลา 23:24 น.
+## ทีม AIE223 | วันที่ 16 มีนาคม 2569 | เวลา 10:30 น.
 
 ---
 
@@ -12,7 +12,7 @@
 | **Repository** | https://github.com/Waytid-way/object-detection-poker |
 | **วัตถุประสงค์** | ระบบตรวจจับไพ่โป๊กเกอร์จากภาพถ่ายโดยใช้ AI |
 | **เทคโนโลยีหลัก** | Python, Flask, YOLO11n (Ultralytics) |
-| **สถานะ** | ✅ Backend ทดสอบผ่านแล้ว — พร้อมใช้งาน |
+| **สถานะ** | ✅ Backend ทดสอบผ่านแล้ว — Code clean & simple & ready |
 
 ---
 
@@ -22,7 +22,7 @@
 
 | ไฟล์ | หน้าที่ | สถานะ |
 |---|---|---|
-| `app.py` | Flask backend หลัก — รับภาพ, inference, คืน JSON | ✅ เสร็จสมบูรณ์ |
+| `app.py` | Flask backend หลัก — รับภาพ, inference, คืน JSON | ✅ เสร็จสมบูรณ์ (simplified, direct model load) |
 | `requirements.txt` | รายการ dependencies ที่โปรเจกต์ต้องใช้ | ✅ เสร็จสมบูรณ์ |
 | `.gitignore` | กำหนดไฟล์ที่ห้าม commit ขึ้น GitHub | ✅ เสร็จสมบูรณ์ |
 | `templates/index.html` | หน้าเว็บ frontend (จัดทำโดยทีม frontend) | ✅ รับมาและ integrate แล้ว |
@@ -144,8 +144,9 @@ pip install -r requirements.txt
 ### ขั้นตอนที่ 2 — วาง model file
 
 ```powershell
-# copy best.pt เข้า folder โปรเจกต์
-copy "C:\path\to\best.pt" ".\best.pt"
+# ต้องมี best.pt อยู่ใน folder โปรเจกต์
+# ถ้าไม่มี app จะ error และแสดมเซจ "Model file 'best.pt' not found"
+cp <path-to-best.pt> .
 ```
 
 ### ขั้นตอนที่ 3 — รัน Flask
@@ -165,6 +166,18 @@ python app.py
 
 เปิด browser ไปที่: **http://localhost:5000**
 
+### ขั้นตอนที่ 5 — แชร์ผ่าน ngrok (ถ้าต้องการ URL https)
+
+```powershell
+.\start-ngrok.bat
+```
+
+หรือบน bash:
+
+```bash
+./start-ngrok.sh
+```
+
 ---
 
 ## 7. QC Checklist — Backend
@@ -183,6 +196,8 @@ python app.py
 | B-08 | run host=0.0.0.0, port=5000 | `app.run(host='0.0.0.0', port=5000)` | ✅ ผ่าน |
 | B-09 | JSON field ใช้ `class` (ไม่ใช่ `label`) | `"class": "AS"` | ✅ ผ่าน |
 | B-10 | confidence เป็น 0–100 | `round(conf * 100, 1)` | ✅ ผ่าน |
+| B-13 | Model load จาก best.pt โดยตรง | `if not os.path.exists(MODEL_PATH): raise FileNotFoundError` | ✅ ผ่าน |
+| B-14 | ไม่มี download_model module | Code ง่าย, clean, ไม่มี external dependency | ✅ ผ่าน |
 | B-11 | box ใช้ `{left, top, width, height}` | แปลงจาก xyxy ถูกต้อง | ✅ ผ่าน |
 | B-12 | Error response มี field `error` | `{"error": "..."}` | ✅ ผ่าน |
 
@@ -240,11 +255,12 @@ __pycache__/ ← Python bytecode
 | ✅ Push ขึ้น GitHub | เสร็จสมบูรณ์ |
 | ✅ ทดสอบ End-to-End บนเครื่อง local | **ผ่าน** — UI โหลดถูกต้อง, CSS แสดงผล, Server ตอบสนอง |
 | ⏳ ทดสอบ Detect ด้วยรูปไพ่จริง | รอทีม upload ภาพทดสอบ |
-| ⏳ Deploy บน server / cloud | ยังไม่ได้วางแผน |
+| ✅ เปิดใช้งานผ่าน ngrok (optional) | มี script สำหรับแชร์ URL `https` |
+| ✅ Code cleanup: ลบ download_model.py | Simplified backend, direct model load from disk |
 
 ---
 
-## 12. ผลการทดสอบ End-to-End (15 มีนาคม 2569 เวลา 23:24 น.)
+## 12. ผลการทดสอบ End-to-End (16 มีนาคม 2569 เวลา 10:30 น.)
 
 | รายการทดสอบ | ผลลัพธ์ |
 |---|---|
@@ -260,5 +276,21 @@ __pycache__/ ← Python bytecode
 
 ---
 
-*รายงานนี้จัดทำโดย Antigravity AI Assistant สำหรับทีม AIE223*
-*อัปเดตล่าสุด: 15 มีนาคม 2569 เวลา 23:24 น.*
+*รายงานนี้จัดทำโดย GitHub Copilot สำหรับทีม AIE223*
+*อัปเดตล่าสุด: 16 มีนาคม 2569 เวลา 10:30 น.*
+
+---
+
+## 13. สรุปการอัปเดต (16 มีนาคม 2569)
+
+### เปลี่ยนแปลงหลัก
+- ✅ ลบ `download_model.py` — ไม่จำเป็น, code ซับซ้อน
+- ✅ ปรับ `app.py` ให้ load model โดยตรงจาก `best.pt`
+- ✅ Error handling ชัดเจน: ถ้าไม่มี `best.pt` → แสดม error message
+- ✅ Code ตอนนี้ Simple, Clean, No External Download Logic
+
+### ประโยชน์
+1. **ง่ายต่อการดูแล** — Frontend developers เข้าใจ logic ได้ง่าย
+2. **ลดจำนวนไฟล์ที่ต้อง maintain** — 1 ไฟล์ที่ลบไป
+3. **ชัดเจนว่า model ต้องมี** — ไม่มี magic auto-download
+4. **ลดความเสี่ยง** — ไม่ต้องพึ่ง Google Drive API errors

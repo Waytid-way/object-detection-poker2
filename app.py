@@ -3,22 +3,23 @@ import uuid
 from flask import Flask, request, jsonify, render_template
 from werkzeug.utils import secure_filename
 from ultralytics import YOLO
-from download_model import download_model
 
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
 
 UPLOAD_FOLDER = "uploads"
-# สร้าง folder อัตโนมัติถ้ายังไม่มี — exist_ok=True ป้องกัน error ถ้ามีอยู่แล้ว
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER  # ใช้ผ่าน app.config ได้ทุกที่
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
 CONFIDENCE_THRESHOLD = 0.5
+MODEL_PATH = "best.pt"
 
-# Download model from Google Drive if not present
-download_model()
-model = YOLO("best.pt")
+# Load model
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError(f"Model file '{MODEL_PATH}' not found. Please ensure the model file exists in the project directory.")
+
+model = YOLO(MODEL_PATH)
 
 # Routes
 @app.route("/", methods=["GET"])
@@ -42,11 +43,11 @@ def detect():
             return jsonify({"error": "No image file provided. Use field name 'image'."}), 400
 
         file = request.files["image"]
-        if file.filename == "":
+        if not file.filename:
             return jsonify({"error": "Empty filename."}), 400
 
         # ── 2. บันทึก temp file (secure_filename ป้องกัน path traversal) ──
-        filename = secure_filename(file.filename)
+        filename = secure_filename(file.filename or "")
         unique_filename = f"{uuid.uuid4().hex}_{filename}"
         temp_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_filename)
         file.save(temp_path)
