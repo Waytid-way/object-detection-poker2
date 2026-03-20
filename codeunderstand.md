@@ -43,10 +43,28 @@
 - ถ้าชื่อไฟล์ว่างก็คืน 400
 - ใช้ `secure_filename` + UUID ลดความเสี่ยง path traversal และชนชื่อไฟล์
 
+```python
+if "image" not in request.files:
+    return jsonify({"error": "No image file provided. Use field name 'image'."}), 400
+
+file = request.files["image"]
+if not file.filename:
+    return jsonify({"error": "Empty filename."}), 400
+```
+
 ### B) การประมวลผล confidence
 - อ่านจาก `request.form["confidence"]`
 - รองรับทั้งค่าร้อยละ (เช่น 50) และค่า 0–1 (เช่น 0.5)
 - clamp ให้อยู่ในช่วง 0.0–1.0 ก่อนส่งเข้า YOLO
+
+```python
+requested_confidence = request.form.get("confidence", "").strip()
+confidence = CONFIDENCE_THRESHOLD
+if requested_confidence:
+    parsed_confidence = float(requested_confidence)
+    confidence = parsed_confidence / 100 if parsed_confidence > 1 else parsed_confidence
+    confidence = max(0.0, min(confidence, 1.0))
+```
 
 ### C) การแปลงผล YOLO เป็น JSON ที่ frontend ใช้ได้ตรง ๆ
 - อ่าน class id, confidence, และกล่องจาก `xyxyn`
@@ -54,12 +72,48 @@
   - `left`, `top`, `width`, `height` อยู่ในสเกล 0–100
   - `confidence` ก็เป็นเปอร์เซ็นต์ 0–100
 
+```python
+raw_detections.append({
+    "class":      label,
+    "confidence": round(confidence * 100, 1),
+    "box": {
+        "left":   round(x1 * 100, 2),
+        "top":    round(y1 * 100, 2),
+        "width":  round((x2 - x1) * 100, 2),
+        "height": round((y2 - y1) * 100, 2),
+    }
+})
+```
+
 ### D) Dedup ต่อ class (logic เฉพาะโดเมนไพ่)
 - ถ้าตรวจเจอไพ่ class เดียวกันหลายกรอบ จะเก็บเฉพาะกรอบที่ confidence สูงสุด
+
+```python
+best_per_class = {}
+for det in raw_detections:
+    cls = det['class']
+    if cls not in best_per_class:
+        best_per_class[cls] = det
+    else:
+        if det['confidence'] > best_per_class[cls]['confidence']:
+            best_per_class[cls] = det
+
+detections = list(best_per_class.values())
+```
 
 ### E) Error + Cleanup
 - error ใด ๆ จะคืน `{"error": ...}` ด้วย HTTP 500
 - `finally` จะลบไฟล์ temp เสมอ ป้องกันไฟล์ค้าง
+
+```python
+except Exception as e:
+    return jsonify({"error": str(e)}), 500
+
+finally:
+    # ลบ temp file เสมอ ไม่ว่าจะสำเร็จหรือ exception
+    if temp_path and os.path.exists(temp_path):
+        os.remove(temp_path)
+```
 
 ---
 
@@ -109,10 +163,59 @@
 - `#mediaWrapper` มีทั้ง `<img id="displayImage">` และ `<video id="displayVideo">` สำหรับแสดงสื่อที่เลือก.
 - มี `<canvas id="hiddenCanvas">` ซ่อนไว้เพื่อจับเฟรมวิดีโอ/เว็บแคมส่งตรวจจับ.
 
+```html
+<div id="dropzone" class="panel dropzone" role="button" tabindex="0" aria-label="อัปโหลดรูปหรือวิดีโอ">
+    <input type="file" id="fileInput" class="hidden" accept="image/*,video/*">
+
+    <div id="uploadPrompt" class="upload-prompt">
+        <div class="upload-badge">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 16V4m0 0-4 4m4-4 4 4M4 16v1a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        </div>
+        <p class="upload-title">Drag and drop หรือคลิกเพื่อเลือกไฟล์</p>
+        <p class="upload-copy">ภาพจะส่งเข้า `/detect` ทันที ส่วนวิดีโอและ webcam จะส่งเป็นเฟรมต่อเนื่อง</p>
+    </div>
+
+    <div id="scannerOverlay" class="scanner-overlay hidden" aria-hidden="true">
+        <div class="scanner-line"></div>
+        <p>Analyzing cards...</p>
+    </div>
+
+    <div id="mediaWrapper" class="media-wrapper hidden">
+        <div id="mediaStage" class="media-stage">
+            <img id="displayImage" class="media-element hidden" alt="Preview">
+            <video id="displayVideo" class="media-element hidden" autoplay muted playsinline></video>
+        </div>
+        <canvas id="hiddenCanvas" class="hidden"></canvas>
+    </div>
+</div>
+```
+
 ### C) Toolbar controls
 - slider `#confSlider` สำหรับตั้ง threshold 0–100.
 - `#confValueDisplay` แสดงค่าปัจจุบันเป็นเปอร์เซ็นต์.
 - switch `#toggleBoxes` สำหรับเปิด/ปิดการแสดงกรอบ bounding boxes.
+
+```html
+<div class="panel toolbar">
+    <div class="threshold-group">
+        <div class="toolbar-header">
+            <label for="confSlider">Confidence Threshold</label>
+            <span id="confValueDisplay" class="value-chip">50%</span>
+        </div>
+        <input type="range" id="confSlider" min="0" max="100" value="50">
+    </div>
+
+    <label class="switch-group" for="toggleBoxes">
+        <span>แสดงกรอบ</span>
+        <span class="switch">
+            <input type="checkbox" id="toggleBoxes" checked>
+            <span class="switch-ui"></span>
+        </span>
+    </label>
+</div>
+```
 
 ### D) Action buttons
 - `#webcamBtn` ใช้เปิด/ปิดโหมดกล้อง.
@@ -127,6 +230,56 @@
   - best hand (`#bestHandResult`, `#bestHandCards`)
   - draws/outs (`#drawsContainer`, `#drawsResult`)
   - tips (`#tipsContainer`, `#tipsTitle`, `#tipsBody`, `#closeTipsBtn`)
+
+```html
+<section class="panel analysis-panel">
+    <div class="analysis-header">
+        <div>
+            <p class="panel-kicker">Board Analysis</p>
+            <h2>Current Table State</h2>
+        </div>
+        <div class="status-cluster">
+            <span id="statusDot" class="status-dot is-idle"></span>
+            <span id="statusText">พร้อมใช้งาน</span>
+        </div>
+    </div>
+
+    <div id="emptyAnalysis" class="empty-analysis">
+        <p id="emptyAnalysisTitle" class="empty-title">พร้อมสแกนไพ่</p>
+        <p id="emptyAnalysisCopy" class="empty-copy">อัปโหลดรูป เปิดกล้อง หรือใช้วิดีโอเพื่อเริ่มวิเคราะห์บน frontend จริง</p>
+    </div>
+
+    <div id="resultAnalysis" class="results hidden">
+        <section class="result-block">
+            <div class="result-row">
+                <p class="result-label">Detected Cards</p>
+                <p class="result-meta"><span id="cardCount">0</span> ใบ</p>
+            </div>
+            <div id="visualCardsContainer" class="visual-cards"></div>
+        </section>
+
+        <section class="result-block highlight-block">
+            <p class="result-label">Current Best Hand</p>
+            <div id="bestHandResult" class="best-hand-result"></div>
+            <div id="bestHandCards" class="best-hand-cards"></div>
+        </section>
+
+        <section id="drawsContainer" class="result-block draws-block hidden">
+            <p class="result-label">Draws / Outs</p>
+            <div id="drawsResult" class="draws-result"></div>
+        </section>
+
+        <section id="tipsContainer" class="result-block tips-block hidden">
+            <div class="result-row">
+                <p class="result-label">Tips</p>
+                <button id="closeTipsBtn" class="tip-close-btn" type="button" aria-label="ซ่อนคำอธิบาย">ปิด</button>
+            </div>
+            <h3 id="tipsTitle" class="tips-title"></h3>
+            <p id="tipsBody" class="tips-body"></p>
+        </section>
+    </div>
+</section>
+```
 
 ### F) Integration point
 - ท้ายไฟล์โหลด `app.js` เพื่อให้ทุก element ที่ประกาศใน HTML ถูก bind พฤติกรรมได้หลัง DOM พร้อมใช้งาน.
@@ -175,18 +328,170 @@
 - ใช้ CSS variables (`:root`) กำหนดชุดสี, รัศมีมุม, และเงา เพื่อคุม design language ทั้งระบบ.
 - ใช้ grid/flex สร้างโครง dashboard 2 คอลัมน์ และ fallback เป็นคอลัมน์เดียวบนจอเล็ก.
 
+```css
+:root {
+    --bg: #060606;
+    --bg-soft: #101010;
+    --panel: rgba(16, 16, 16, 0.82);
+    --panel-border: rgba(255, 255, 255, 0.08);
+    --text: #f7f7f7;
+    --muted: #989898;
+    --accent: #e11d2f;
+    --accent-strong: #ff3348;
+    --accent-soft: rgba(225, 29, 47, 0.14);
+    --success: #f2f2f2;
+    --radius-lg: 28px;
+    --radius-md: 18px;
+    --radius-sm: 12px;
+    --shadow-panel: 0 26px 80px rgba(0, 0, 0, 0.42);
+}
+
+.dashboard {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+    gap: 24px;
+    align-items: start;
+}
+```
+
 ### B) Upload/Media Experience
 - `dropzone` มี state `dragover` สำหรับ feedback ตอนลากไฟล์.
 - มี `scanner-overlay` + animation line ช่วยสื่อสถานะกำลังประมวลผล.
 - media stage ถูกจัดให้รองรับทั้งรูปและวิดีโอในพื้นที่เดียว.
 
+```css
+.dropzone {
+    min-height: 560px;
+    padding: 20px;
+    border: 1px solid rgba(225, 29, 47, 0.25);
+    outline: 1px dashed rgba(255, 255, 255, 0.12);
+    outline-offset: -14px;
+    cursor: pointer;
+    transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+
+.dropzone.dragover {
+    transform: translateY(-2px);
+    border-color: rgba(255, 51, 72, 0.5);
+    background: rgba(30, 10, 12, 0.95);
+}
+
+.upload-prompt {
+    min-height: 520px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 14px;
+    text-align: center;
+    padding: 48px 24px;
+}
+
+.media-wrapper {
+    position: relative;
+    display: flex;
+    width: 100%;
+    min-height: 520px;
+    align-items: center;
+    justify-content: center;
+}
+```
+
 ### C) Analysis UI
 - `status-dot` มีหลายสถานะ (`idle`, `analyzing`, `live`, `success`, `error`) และมี pulse animation ในโหมดที่กำลังทำงาน.
 - โซนผลลัพธ์ถูกแยกเป็นบล็อกการ์ด (detected cards, best hand, draws, tips) เพื่อให้อ่านง่าย.
 
+```css
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #686868;
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.24);
+}
+
+.status-dot.is-analyzing,
+.status-dot.is-live {
+    animation: pulse 1.2s infinite;
+}
+
+.status-dot.is-idle {
+    background: #686868;
+}
+
+.status-dot.is-analyzing {
+    background: var(--accent-strong);
+}
+
+.status-dot.is-live {
+    background: #ff8090;
+}
+
+.status-dot.is-success {
+    background: var(--success);
+}
+
+.status-dot.is-error {
+    background: #8a1f2a;
+}
+
+.results {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.result-block {
+    padding: 18px;
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.26);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+```
+
 ### D) Visual Representation ของผลตรวจจับ
 - `.playing-card` ใช้สำหรับแสดงไพ่ที่ตรวจพบใน panel.
 - `.bounding-box` + `.box-label` ใช้ซ้อนบนภาพ/วิดีโอเพื่อระบุตำแหน่งไพ่และ confidence.
+
+```css
+.playing-card {
+    position: relative;
+    width: 62px;
+    height: 90px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 5px;
+    border-radius: 10px;
+    background: white;
+    box-shadow: 0 16px 24px rgba(0, 0, 0, 0.32);
+    animation: pop-in 220ms ease backwards;
+}
+
+.bounding-box {
+    position: absolute;
+    z-index: 10;
+    border: 2px solid var(--accent-strong);
+    border-radius: 10px;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        0 0 22px rgba(255, 51, 72, 0.4);
+    pointer-events: none;
+    transition: opacity 120ms ease;
+}
+
+.box-label {
+    position: absolute;
+    top: -28px;
+    left: -2px;
+    padding: 5px 10px;
+    border-radius: 10px 10px 10px 2px;
+    background: var(--accent);
+    color: white;
+    font-size: 0.76rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+```
 
 ### E) Responsive
 - จุดตัด `@media (max-width: 1100px)` ปรับ dashboard เป็นคอลัมน์เดียว.
